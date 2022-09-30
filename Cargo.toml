@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 description = "Discrete Event Simluation for Async Rust"
+repository = "https://github.com/kaimast/asim"
 
 [dependencies]
 log = "0.4"
