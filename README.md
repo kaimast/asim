@@ -1,5 +1,8 @@
 # Asynchronous (Discrete Event) Simulator
 
+[![license-badge](https://img.shields.io/crates/l/asim)](https://github.com/kaimast/asim/blob/main/LICENSE)
+[![crates-badge](https://img.shields.io/crates/v/asim)](https://crates.io/crates/asim)
+
 A discrete event simulator that let you specify application logic in asynchronous functions.
 The main goal of this crate is to make simulation code look very similar to that of a real-world system..
 This is achieved by providing an API similar to that of the standard library or tokio but with an implementation based on discrete events.
