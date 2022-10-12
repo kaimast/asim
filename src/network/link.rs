@@ -156,13 +156,13 @@ impl<Message: NetworkMessage> LinkQueue<Message> {
     }
 }
 
-/*
+/* TOOD re-add event handling
 #[cfg(test)]
 mod tests {
     use std::rc::Rc;
     use std::sync::mpsc;
 
-    use desim::TaskRunner;
+    use crate::TaskRunner;
 
     use crate::events::{Event, LinkEvent, EVENT_HANDLER};
     use crate::logic::DummyLogic;
@@ -222,9 +222,6 @@ mod tests {
         );
 
         let link = Rc::new(Link::new(
-            3,
-            timer.clone(),
-            None,
             50,
             process1.clone(),
             process2.clone(),
