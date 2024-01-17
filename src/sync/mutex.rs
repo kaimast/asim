@@ -84,6 +84,12 @@ impl<T> Mutex<T> {
     }
 }
 
+impl<T: Default> Default for Mutex<T> {
+    fn default() -> Self {
+        Self::new(T::default())
+    }
+}
+
 impl<T> Deref for LockGuard<'_, T> {
     type Target = T;
 
