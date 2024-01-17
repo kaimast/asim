@@ -22,7 +22,7 @@ impl PartialEq for TimeEvent {
 
 impl PartialOrd for TimeEvent {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.wake_time.partial_cmp(&other.wake_time)
+        Some(self.cmp(other))
     }
 }
 

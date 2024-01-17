@@ -20,7 +20,7 @@ impl Time {
     }
 
     pub const fn from_seconds(seconds: u64) -> Self {
-        Self::from_millis((seconds as u64) * 1000)
+        Self::from_millis(seconds * 1000)
     }
 
     pub const fn from_minutes(minutes: u64) -> Self {
@@ -43,11 +43,11 @@ impl Time {
 
     /// Get elapsed seconds (rounded down)
     pub fn to_seconds(&self) -> u64 {
-        (self.0 / (1_000_000)) as u64
+        self.0 / 1_000_000
     }
 
     pub fn to_millis(&self) -> u64 {
-        (self.0 / 1_000) as u64
+        self.0 / 1_000
     }
 
     pub fn as_micros(&self) -> u64 {
@@ -64,6 +64,8 @@ impl Time {
 }
 
 impl Duration {
+    pub const ZERO: Self = Self(0);
+
     pub const fn from_micros(micros: u64) -> Self {
         Self(micros)
     }
@@ -73,7 +75,7 @@ impl Duration {
     }
 
     pub const fn from_seconds(seconds: u64) -> Self {
-        Self::from_millis((seconds as u64) * 1000)
+        Self::from_millis(seconds * 1000)
     }
 
     pub const fn from_minutes(minutes: u64) -> Self {
@@ -100,11 +102,11 @@ impl Duration {
 
     /// Get duration in seconds (rounded down)
     pub fn to_seconds(self) -> u64 {
-        (self.0 / (1_000_000)) as u64
+        self.0 / (1_000_000)
     }
 
     pub fn to_millis(self) -> u64 {
-        (self.0 / 1_000) as u64
+        self.0 / 1_000
     }
 
     pub fn as_micros(&self) -> u64 {
