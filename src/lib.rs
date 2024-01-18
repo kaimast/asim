@@ -13,7 +13,7 @@ pub mod sync;
 
 pub mod network;
 
-mod timer;
+pub mod timer;
 pub use timer::Timer;
 
 pub mod time;
@@ -38,7 +38,12 @@ impl ArcWake for RcWrapper {
     }
 }
 
-// An event queue servers as an executor for the async tasks simulating the timed events
+thread_local! {
+    /// The event queue of the active task runner, if any
+    static TASK_RUNNER: RefCell<Option<Rc<RefCell<TaskQueue>>>> = RefCell::new(None);
+}
+
+/// An event queue servers as an executor for the async tasks simulating the timed events
 pub struct TaskRunner {
     ready_tasks: Rc<RefCell<TaskQueue>>,
 }
@@ -65,6 +70,13 @@ impl TaskRunner {
             log::trace!("Found {} tasks that are ready", ready_tasks.len());
         }
 
+        {
+            let task_queue = self.ready_tasks.clone();
+            TASK_RUNNER.with(|r| {
+                r.borrow_mut().replace(task_queue);
+            });
+        }
+
         for task in ready_tasks.drain(..) {
             let mut fut_lock = task.future.lock();
 
@@ -78,6 +90,10 @@ impl TaskRunner {
                 }
             }
         }
+
+        TASK_RUNNER.with(|r| {
+            *r.borrow_mut() = None;
+        });
 
         true
     }
@@ -96,4 +112,22 @@ impl TaskRunner {
     pub fn stop(&self) {
         self.ready_tasks.borrow_mut().clear();
     }
+}
+
+/// Spawn a new task in the current asim context
+///
+/// Note, this will panic if no asim context is active
+pub fn spawn(future: impl Future<Output = ()> + 'static) {
+    TASK_RUNNER.with(|r| {
+        let hdl = r.borrow();
+        let ready_tasks = hdl.as_ref().expect("Not in a asim context!");
+
+        let future = Box::pin(future);
+        let task = Rc::new(Task {
+            future: Mutex::new(Some(future)),
+            ready_tasks: ready_tasks.clone(),
+        });
+
+        ready_tasks.borrow_mut().push(task);
+    });
 }

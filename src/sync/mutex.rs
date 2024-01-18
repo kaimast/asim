@@ -13,6 +13,8 @@ pub struct MutexInner {
 
 type Waiters = Vec<(u32, Waker)>;
 
+/// A Mutex that has an async lock function
+/// Useful if you want to hold a lock while waiting for some other task to complete
 pub struct Mutex<T> {
     data: RefCell<T>,
     inner: RefCell<MutexInner>,
@@ -198,7 +200,7 @@ impl Condvar {
 
         let mut iter = old_waiters.into_iter();
 
-        // Find one waker that has not been woker yet
+        // Find one waker that has not been woken yet
         for (is_woken, waker) in iter.by_ref() {
             if !is_woken.load(Ordering::SeqCst) {
                 is_woken.store(true, Ordering::SeqCst);
