@@ -4,6 +4,7 @@ use std::cmp::Ordering;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering as AtomicOrdering};
 
+use crate::network::node::{DummyNodeData, NodeData};
 use crate::network::{DummyNetworkMessage, Latency, NetworkMessage, Object, ObjectId};
 use crate::time::Duration;
 
@@ -11,33 +12,36 @@ use crate::time::Duration;
 pub type Bandwidth = u64;
 
 /// Each link consists of two messages queues, one for each direction
-pub struct Link<Message: NetworkMessage> {
+pub struct Link<Message: NetworkMessage, Data: NodeData> {
     identifier: ObjectId,
 
-    queue1: Rc<LinkQueue<Message>>,
-    queue2: Rc<LinkQueue<Message>>,
+    queue1: Rc<LinkQueue<Message, Data>>,
+    queue2: Rc<LinkQueue<Message, Data>>,
 
-    callback: Box<dyn LinkCallback<Message>>,
+    callback: Box<dyn LinkCallback<Message, Data>>,
 
     active_queues: AtomicU32,
 }
 
-pub trait LinkCallback<Message: NetworkMessage> {
-    fn link_became_active(&self, _link: &Link<Message>) {}
-    fn link_became_inactive(&self, _link: &Link<Message>) {}
+pub trait LinkCallback<Message: NetworkMessage, Data: NodeData> {
+    fn link_became_active(&self, _link: &Link<Message, Data>) {}
+    fn link_became_inactive(&self, _link: &Link<Message, Data>) {}
 }
 
 #[derive(Default)]
 pub struct DummyLinkCallback {}
 
-impl LinkCallback<DummyNetworkMessage> for DummyLinkCallback {}
+impl LinkCallback<DummyNetworkMessage, DummyNodeData> for DummyLinkCallback {}
 
-impl<Message: NetworkMessage> Link<Message> {
+impl<Message: NetworkMessage, Data: NodeData> Link<Message, Data> {
+    pub type Node = Node<Message, Data>;
+    pub type Callback = dyn LinkCallback<Message, Data>;
+
     pub(super) fn new(
         latency: Latency,
-        node1: Rc<Node<Message>>,
-        node2: Rc<Node<Message>>,
-        callback: Box<dyn LinkCallback<Message>>,
+        node1: Rc<Self::Node>,
+        node2: Rc<Self::Node>,
+        callback: Box<Self::Callback>,
     ) -> Self {
         let queue1 = Rc::new(LinkQueue::new(latency, node1.clone(), node2.clone()));
 
@@ -61,7 +65,7 @@ impl<Message: NetworkMessage> Link<Message> {
 
     /// Get the two nodes connected with this link
     /// Always sorted by smallest id first
-    pub fn get_nodes(&self) -> (&Rc<Node<Message>>, &Rc<Node<Message>>) {
+    pub fn get_nodes(&self) -> (&Rc<Self::Node>, &Rc<Self::Node>) {
         let node1 = self.queue1.get_source();
         let node2 = self.queue1.get_destination();
 
@@ -72,7 +76,7 @@ impl<Message: NetworkMessage> Link<Message> {
         }
     }
 
-    pub fn send(self_ptr: &Rc<Link<Message>>, source: ObjectId, message: Message) {
+    pub fn send(self_ptr: &Rc<Self>, source: ObjectId, message: Message) {
         if self_ptr.queue1.get_source().get_identifier() == source {
             LinkQueue::send(self_ptr.queue1.clone(), self_ptr.clone(), message);
         } else if self_ptr.queue2.get_source().get_identifier() == source {
@@ -94,17 +98,17 @@ impl<Message: NetworkMessage> Link<Message> {
     }
 }
 
-impl<Message: NetworkMessage> Object for Link<Message> {
+impl<Message: NetworkMessage, Data: NodeData> Object for Link<Message, Data> {
     fn get_identifier(&self) -> ObjectId {
         self.identifier
     }
 }
 
-struct LinkQueue<Message: NetworkMessage> {
+struct LinkQueue<Message: NetworkMessage, Data: NodeData> {
     latency: Duration,
 
-    source: Rc<Node<Message>>,
-    dest: Rc<Node<Message>>,
+    source: Rc<Node<Message, Data>>,
+    dest: Rc<Node<Message, Data>>,
 
     current_message_count: AtomicU32,
     total_message_count: AtomicU64,
@@ -118,8 +122,12 @@ pub fn get_size_delay(size: u64, bandwidth: Bandwidth) -> Duration {
     Duration::from_micros(micros)
 }
 
-impl<Message: NetworkMessage> LinkQueue<Message> {
-    fn new(latency: Latency, source: Rc<Node<Message>>, dest: Rc<Node<Message>>) -> Self {
+impl<Message: NetworkMessage, Data: NodeData> LinkQueue<Message, Data> {
+    fn new(
+        latency: Latency,
+        source: Rc<Node<Message, Data>>,
+        dest: Rc<Node<Message, Data>>,
+    ) -> Self {
         let current_message_count = AtomicU32::new(0);
         let total_message_count = AtomicU64::new(0);
 
@@ -133,8 +141,8 @@ impl<Message: NetworkMessage> LinkQueue<Message> {
     }
 
     fn send(
-        self_ptr: Rc<LinkQueue<Message>>,
-        link: Rc<Link<Message>>,
+        self_ptr: Rc<LinkQueue<Message, Data>>,
+        link: Rc<Link<Message, Data>>,
         message: Message,
     ) -> (bool, Duration) {
         let latency = self_ptr.latency;
@@ -198,11 +206,11 @@ impl<Message: NetworkMessage> LinkQueue<Message> {
         (was_empty, latency)
     }
 
-    fn get_source(&self) -> &Rc<Node<Message>> {
+    fn get_source(&self) -> &Rc<Node<Message, Data>> {
         &self.source
     }
 
-    fn get_destination(&self) -> &Rc<Node<Message>> {
+    fn get_destination(&self) -> &Rc<Node<Message, Data>> {
         &self.dest
     }
 }
@@ -212,7 +220,7 @@ mod tests {
     use std::rc::Rc;
 
     use crate::network::link::{get_size_delay, DummyLinkCallback, Link};
-    use crate::network::node::{DummyNodeCallback, Node};
+    use crate::network::node::{DummyNodeCallback, DummyNodeData, Node};
     use crate::network::{DummyNetworkMessage, Object};
     use crate::time::Duration;
 
@@ -223,8 +231,16 @@ mod tests {
 
         {
             let _ctx = asim.with_context();
-            node1 = Node::new(1000, Box::new(DummyNodeCallback::default()));
-            node2 = Node::new(1000, Box::new(DummyNodeCallback::default()));
+            node1 = Node::new(
+                1000,
+                DummyNodeData::default(),
+                Box::new(DummyNodeCallback::default()),
+            );
+            node2 = Node::new(
+                1000,
+                DummyNodeData::default(),
+                Box::new(DummyNodeCallback::default()),
+            );
 
             link = Rc::new(Link::new(
                 Duration::from_millis(50),

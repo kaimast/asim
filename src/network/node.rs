@@ -13,45 +13,62 @@ pub type NotifyDeliveryFn = Box<dyn FnOnce()>;
 
 /// Implement this trait to add custom logic to a node
 #[ async_trait::async_trait(?Send) ]
-pub trait NodeCallback<Message: NetworkMessage> {
-    fn node_started(&self, _node: &Node<Message>) {}
-    fn node_stopped(&self, _node: &Node<Message>) {}
+pub trait NodeCallback<Message: NetworkMessage, Data: NodeData> {
+    fn node_started(&self, _node: &Node<Message, Data>) {}
+    fn node_stopped(&self, _node: &Node<Message, Data>) {}
 
-    async fn handle_message(&self, _node: &Node<Message>, _source: ObjectId, message: Message);
+    async fn handle_message(
+        &self,
+        _node: &Node<Message, Data>,
+        _source: ObjectId,
+        message: Message,
+    );
 
-    fn peer_disconnected(&self, _node: &Node<Message>, _peer: ObjectId) {}
+    fn peer_disconnected(&self, _node: &Node<Message, Data>, _peer: ObjectId) {}
 }
 
 #[derive(Default)]
 pub struct DummyNodeCallback {}
 
 #[ async_trait::async_trait(?Send) ]
-impl NodeCallback<DummyNetworkMessage> for DummyNodeCallback {
+impl NodeCallback<DummyNetworkMessage, DummyNodeData> for DummyNodeCallback {
     async fn handle_message(
         &self,
-        _node: &Node<DummyNetworkMessage>,
+        _node: &Node<DummyNetworkMessage, DummyNodeData>,
         _source: ObjectId,
         _message: DummyNetworkMessage,
     ) {
     }
 }
 
+/// Application specific data you can attach to the node
+pub trait NodeData: 'static {}
+
+#[derive(Default)]
+pub struct DummyNodeData {}
+
+impl NodeData for DummyNodeData {}
+
 /// A Node represents a node in the network
 /// It can communicate with other nodes using a Link
-pub struct Node<Message: NetworkMessage> {
+pub struct Node<Message: NetworkMessage, Data: NodeData> {
     identifier: ObjectId,
     inbox_sender: mpsc::Sender<(ObjectId, Message, NotifyDeliveryFn)>,
     bandwidth: Bandwidth,
-    callback: Box<dyn NodeCallback<Message>>,
-    network_links: RefCell<HashMap<ObjectId, Rc<Link<Message>>>>,
+    data: Data,
+    callback: Box<dyn NodeCallback<Message, Data>>,
+    network_links: RefCell<HashMap<ObjectId, Rc<Link<Message, Data>>>>,
 }
 
-impl<Message: NetworkMessage> Node<Message> {
+impl<Message: NetworkMessage, Data: NodeData> Node<Message, Data> {
+    pub type Link = Link<Message, Data>;
+    pub type Callback = dyn NodeCallback<Message, Data>;
+
     /// Create a new node
     ///
     /// * bandwidth: The network bandwidth of this node
     /// * logic: The custom logic for your simulation
-    pub fn new(bandwidth: Bandwidth, callback: Box<dyn NodeCallback<Message>>) -> Rc<Self> {
+    pub fn new(bandwidth: Bandwidth, data: Data, callback: Box<Self::Callback>) -> Rc<Self> {
         let (inbox_sender, inbox_receiver) = mpsc::channel();
 
         let obj = Rc::new(Self {
@@ -59,6 +76,7 @@ impl<Message: NetworkMessage> Node<Message> {
             bandwidth,
             inbox_sender,
             callback,
+            data,
             network_links: RefCell::new(HashMap::default()),
         });
 
@@ -112,7 +130,7 @@ impl<Message: NetworkMessage> Node<Message> {
         node1: &Rc<Self>,
         node2: &Rc<Self>,
         link_latency: Latency,
-        callback: Box<dyn LinkCallback<Message>>,
+        callback: Box<dyn LinkCallback<Message, Data>>,
     ) {
         log::trace!(
             "Connecting node {} and {}",
@@ -174,7 +192,7 @@ impl<Message: NetworkMessage> Node<Message> {
     }
 
     /// Returns the connection to another node with the specified identifier (if it exists)
-    pub fn get_link_to(&self, node_id: &ObjectId) -> Option<Rc<Link<Message>>> {
+    pub fn get_link_to(&self, node_id: &ObjectId) -> Option<Rc<Link<Message, Data>>> {
         match self.network_links.borrow().get(node_id) {
             Some(link) => Some(link.clone()),
             None => {
@@ -200,12 +218,16 @@ impl<Message: NetworkMessage> Node<Message> {
     }
 
     /// Get the callback associated with this node
-    pub fn get_callback(&self) -> &dyn NodeCallback<Message> {
+    pub fn get_callback(&self) -> &dyn NodeCallback<Message, Data> {
         &*self.callback
+    }
+
+    pub fn get_data(&self) -> &Data {
+        &self.data
     }
 }
 
-impl<Message: NetworkMessage> Object for Node<Message> {
+impl<Message: NetworkMessage, Data: NodeData> Object for Node<Message, Data> {
     fn get_identifier(&self) -> ObjectId {
         self.identifier
     }

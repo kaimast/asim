@@ -9,3 +9,6 @@ check:
 
 test:
     cargo test
+
+fix-formatting:
+    cargo fmt

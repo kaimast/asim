@@ -1,3 +1,6 @@
+#![allow(incomplete_features)]
+#![feature(inherent_associated_types)]
+
 /// asim is a discrete event simulator for Rust
 ///
 /// It implements an asynchronous runtime and provides utility function
