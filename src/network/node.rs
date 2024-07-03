@@ -19,7 +19,7 @@ pub trait NodeCallback<Message: NetworkMessage, Data: NodeData> {
 
     async fn handle_message(
         &self,
-        _node: &Node<Message, Data>,
+        _node: &Rc<Node<Message, Data>>,
         _source: ObjectId,
         message: Message,
     );
@@ -34,7 +34,7 @@ pub struct DummyNodeCallback {}
 impl NodeCallback<DummyNetworkMessage, DummyNodeData> for DummyNodeCallback {
     async fn handle_message(
         &self,
-        _node: &Node<DummyNetworkMessage, DummyNodeData>,
+        _node: &Rc<Node<DummyNetworkMessage, DummyNodeData>>,
         _source: ObjectId,
         _message: DummyNetworkMessage,
     ) {
@@ -184,7 +184,7 @@ impl<Message: NetworkMessage, Data: NodeData> Node<Message, Data> {
                 crate::spawn(async move {
                     self_ptr2
                         .callback
-                        .handle_message(&*self_ptr2, source, message)
+                        .handle_message(&self_ptr2, source, message)
                         .await;
                 });
             }
@@ -217,6 +217,35 @@ impl<Message: NetworkMessage, Data: NodeData> Node<Message, Data> {
         }
     }
 
+     pub fn broadcast(&self, message: Message, ignore: Option<ObjectId>) {
+        let links = self.network_links.borrow();
+
+        if links.is_empty() {
+            log::warn!("Node is not connected to anybody");
+            return;
+        }
+
+        log::trace!(
+            "Broadcasting message to {} peers",
+            if ignore.is_some() {
+                links.len() - 1
+            } else {
+                links.len()
+            }
+        );
+
+        for (id, link) in links.iter() {
+            if let Some(ignore) = ignore {
+                if *id == ignore {
+                    continue;
+                }
+            }
+
+            Link::send(link, self.get_identifier(), message.clone());
+        }
+    }
+
+
     /// Get the callback associated with this node
     pub fn get_callback(&self) -> &dyn NodeCallback<Message, Data> {
         &*self.callback
@@ -225,10 +254,31 @@ impl<Message: NetworkMessage, Data: NodeData> Node<Message, Data> {
     pub fn get_data(&self) -> &Data {
         &self.data
     }
+
+    /// Returns which nodes this node is connected to
+    pub fn get_peers(&self) -> Vec<ObjectId> {
+        let links = self.network_links.borrow();
+        links.iter().map(|(idx, _)| *idx).collect()
+    }
+
+    /// How many other nodes is this node connected to?
+    pub fn num_peers(&self) -> usize {
+        let links = self.network_links.borrow();
+        links.len()
+    }
 }
 
 impl<Message: NetworkMessage, Data: NodeData> Object for Node<Message, Data> {
     fn get_identifier(&self) -> ObjectId {
         self.identifier
+    }
+}
+
+
+impl<Message: NetworkMessage, Data: NodeData> std::ops::Deref for Node<Message, Data> {
+    type Target = Data;
+
+    fn deref(&self) -> &Self::Target {
+        self.get_data()
     }
 }
