@@ -1,0 +1,7 @@
+0.2:
+    - Add asim::spawn() function similar to tokio::spawn()
+    - Add asim::time::sleep() function similar to tokio::time::sleep()
+    - Improve documentation and add examples
+
+0.1:
+    - Initial Release

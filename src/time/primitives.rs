@@ -84,6 +84,11 @@ impl Duration {
         Self::from_minutes(60 * hours)
     }
 
+    pub const fn from_days(days: u64) -> Self {
+        Self::from_hours(24 * days)
+    }
+
+
     pub fn is_zero(&self) -> bool {
         self.0 == 0
     }

@@ -26,6 +26,10 @@ impl Default for Runtime {
 }
 
 impl Runtime {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     /// Run all ready tasks
     /// Will return true if any task ran
     pub fn execute_tasks(&self) -> bool {
@@ -74,6 +78,28 @@ impl Runtime {
     pub fn spawn(&self, future: impl Future<Output = ()> + 'static) {
         let task = Rc::new(Task::new(future, self.ready_tasks.clone()));
         self.ready_tasks.borrow_mut().push(task);
+    }
+
+    /// Spawns a task and waits for it to complete
+    ///
+    /// Note: This cannot be called from within an asim context
+    pub fn block_on(&self, future: impl Future<Output = ()> + 'static) {
+        let done = Rc::new(RefCell::new(false));
+        let future = {
+            let done = done.clone();
+
+            async move {
+                future.await;
+                *done.borrow_mut() = true;
+            }
+        };
+
+        let task = Rc::new(Task::new(future, self.ready_tasks.clone()));
+        self.ready_tasks.borrow_mut().push(task);
+
+        while !*done.borrow() {
+            self.execute_tasks();
+        }
     }
 
     /// Drops all queued events

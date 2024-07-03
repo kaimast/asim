@@ -15,3 +15,14 @@ pub fn sleep(duration: Duration) -> SleepFut {
             .sleep_for(duration)
     })
 }
+
+/// Get the current simulated time
+pub fn now() -> Time {
+    crate::CONTEXT.with(|hdl| {
+        hdl.borrow()
+            .as_ref()
+            .expect("Not in an asim context")
+            .get_timer()
+            .now()
+    })
+}
