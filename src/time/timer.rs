@@ -54,15 +54,18 @@ impl Timer {
     }
 
     /// Advance time to the next event and schedule it to be run
-    pub fn advance(&self) {
+    ///
+    /// Return true if any time event existed
+    pub fn advance(&self) -> bool {
         let mut time_events = self.time_events.borrow_mut();
         if let Some(Reverse(time_event)) = time_events.pop() {
             // Move to the time of the next event
             self.current_time
                 .store(time_event.wake_time.as_micros(), Ordering::SeqCst);
             time_event.waker.wake();
+            true
         } else {
-            panic!("No time event left");
+            false
         }
     }
 
