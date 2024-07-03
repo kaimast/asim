@@ -30,6 +30,7 @@ dependencies = [
 name = "asim"
 version = "0.1.0"
 dependencies = [
+ "asim-macros",
  "async-trait",
  "env_logger",
  "futures",
@@ -39,6 +40,15 @@ dependencies = [
  "rand",
  "serde",
  "tokio",
+]
+
+[[package]]
+name = "asim-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

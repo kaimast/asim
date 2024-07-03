@@ -14,6 +14,8 @@ pub mod time;
 pub mod runtime;
 pub use runtime::Runtime;
 
+pub use asim_macros::test;
+
 mod task;
 pub use task::Task;
 pub(crate) use task::{RcWrapper, TaskQueue};

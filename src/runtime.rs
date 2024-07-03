@@ -25,9 +25,42 @@ impl Default for Runtime {
     }
 }
 
+pub struct ContextLock {
+}
+
+impl ContextLock {
+    fn new(runtime: &Runtime) -> Self {
+        CONTEXT.with(|hdl| {
+            let mut context = hdl.borrow_mut();
+            if context.is_some() {
+                panic!("We are already in an asim context!");
+            }
+            *context = Some(runtime.handle());
+        });
+
+        Self{}
+    }
+}
+
+impl Drop for ContextLock {
+    fn drop(&mut self) {
+        CONTEXT.with(|hdl| {
+            *hdl.borrow_mut() = None;
+        });
+    }
+}
+
 impl Runtime {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Set this runtime as the current asim context
+    ///
+    /// Can only be called when the runtime is not the active context yet
+    /// You cannot call execute_tasks while holding the context lock
+    pub fn with_context(&self) -> ContextLock {
+        ContextLock::new(self)
     }
 
     /// Run all ready tasks
@@ -45,13 +78,7 @@ impl Runtime {
         }
 
         // Set the asim context before we run
-        CONTEXT.with(|hdl| {
-            let mut context = hdl.borrow_mut();
-            if context.is_some() {
-                panic!("We are already in an asim context!");
-            }
-            *context = Some(self.handle());
-        });
+        let context_lock = ContextLock::new(self);
 
         for task in ready_tasks.into_iter() {
             let mut fut_lock = task.get_future();
@@ -68,10 +95,7 @@ impl Runtime {
             }
         }
 
-        CONTEXT.with(|hdl| {
-            *hdl.borrow_mut() = None;
-        });
-
+        drop(context_lock);
         true
     }
 

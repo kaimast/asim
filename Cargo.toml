@@ -6,7 +6,11 @@ license = "MIT"
 description = "Discrete Event Simluation for Async Rust"
 repository = "https://github.com/kaimast/asim"
 
+[workspace]
+members = ["macros"]
+
 [dependencies]
+asim-macros = { path="macros" }
 log = "0.4"
 futures = "0.3"
 parking_lot = "0.12"
