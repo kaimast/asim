@@ -1,15 +1,18 @@
 /// Utilities to simulate a network
 ///
 /// There are two important primitives in this module
-///     * Processes represent individual nodes in the network
+///     * Nodes represent individual nodes in the network
 ///     * Links are connection between the nodes
 use crate::time::Duration;
 
-mod process;
-pub use process::{Process, ProcessId, ProcessLogic};
+mod node;
+pub use node::{Node, NodeCallback};
 
 mod link;
 pub use link::Link;
+
+mod object;
+pub use object::{Object, ObjectId};
 
 /// Network latency in milliseconds
 pub type Latency = Duration;
@@ -29,6 +32,15 @@ impl Bandwidth {
 
 pub trait NetworkMessage: 'static + Send {
     fn get_size(&self) -> u64;
+}
+
+#[derive(Default)]
+pub struct DummyNetworkMessage {}
+
+impl NetworkMessage for DummyNetworkMessage {
+    fn get_size(&self) -> u64 {
+        0
+    }
 }
 
 pub fn get_size_delay(size: u64, bandwidth: Bandwidth) -> Duration {

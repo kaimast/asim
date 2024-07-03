@@ -1,54 +1,78 @@
+use super::node::Node;
+
+use std::cmp::Ordering;
+use std::rc::Rc;
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering as AtomicOrdering};
+
+use crate::network::{DummyNetworkMessage, Latency, NetworkMessage, Object, ObjectId};
 use crate::time::Duration;
 
-use std::cmp::Ordering as CmpOrdering;
-use std::rc::{Rc, Weak as WeakRc};
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+/// Network bandwidth in Megabits per second
+pub type Bandwidth = u64;
 
-use crate::network::{Latency, NetworkMessage, Process, ProcessId};
-
-/// Represents the connection between two processes
-///
 /// Each link consists of two messages queues, one for each direction
 pub struct Link<Message: NetworkMessage> {
+    identifier: ObjectId,
+
     queue1: Rc<LinkQueue<Message>>,
     queue2: Rc<LinkQueue<Message>>,
+
+    callback: Box<dyn LinkCallback<Message>>,
 
     active_queues: AtomicU32,
 }
 
+pub trait LinkCallback<Message: NetworkMessage> {
+    fn link_became_active(&self, _link: &Link<Message>) {}
+    fn link_became_inactive(&self, _link: &Link<Message>) {}
+}
+
+#[derive(Default)]
+pub struct DummyLinkCallback {}
+
+impl LinkCallback<DummyNetworkMessage> for DummyLinkCallback {}
+
 impl<Message: NetworkMessage> Link<Message> {
     pub(super) fn new(
         latency: Latency,
-        process1: WeakRc<Process<Message>>,
-        process2: WeakRc<Process<Message>>,
+        node1: Rc<Node<Message>>,
+        node2: Rc<Node<Message>>,
+        callback: Box<dyn LinkCallback<Message>>,
     ) -> Self {
-        let queue1 = Rc::new(LinkQueue::new(latency, process1.clone(), process2.clone()));
+        let queue1 = Rc::new(LinkQueue::new(latency, node1.clone(), node2.clone()));
 
-        let queue2 = Rc::new(LinkQueue::new(latency, process2, process1));
+        let queue2 = Rc::new(LinkQueue::new(latency, node2, node1));
 
         let active_queues = AtomicU32::new(0);
 
         Self {
+            identifier: ObjectId::random(),
             queue1,
             queue2,
             active_queues,
+            callback,
         }
     }
 
-    /// Get the two processs connected with this link
+    /// Does the link currently have any messages in transit?
+    pub fn is_active(&self) -> bool {
+        self.active_queues.load(AtomicOrdering::Relaxed) > 0
+    }
+
+    /// Get the two nodes connected with this link
     /// Always sorted by smallest id first
-    pub fn get_processes(&self) -> (Rc<Process<Message>>, Rc<Process<Message>>) {
-        let process1 = self.queue1.get_source();
-        let process2 = self.queue1.get_destination();
+    pub fn get_nodes(&self) -> (&Rc<Node<Message>>, &Rc<Node<Message>>) {
+        let node1 = self.queue1.get_source();
+        let node2 = self.queue1.get_destination();
 
-        match process1.get_identifier().cmp(&process2.get_identifier()) {
-            CmpOrdering::Less => (process1, process2),
-            CmpOrdering::Greater => (process2, process1),
-            CmpOrdering::Equal => panic!("Invalid state: src and dst process are the same"),
+        match node1.get_identifier().cmp(&node2.get_identifier()) {
+            Ordering::Less => (node1, node2),
+            Ordering::Greater => (node2, node1),
+            Ordering::Equal => panic!("Invalid state"),
         }
     }
 
-    pub fn send(self_ptr: &Rc<Link<Message>>, source: ProcessId, message: Message) {
+    pub fn send(self_ptr: &Rc<Link<Message>>, source: ObjectId, message: Message) {
         if self_ptr.queue1.get_source().get_identifier() == source {
             LinkQueue::send(self_ptr.queue1.clone(), self_ptr.clone(), message);
         } else if self_ptr.queue2.get_source().get_identifier() == source {
@@ -60,27 +84,42 @@ impl<Message: NetworkMessage> Link<Message> {
 
     /// Get the number of all messages ever sent through this link
     pub fn num_total_messages(&self) -> u64 {
-        self.queue1.total_message_count.load(Ordering::SeqCst)
-            + self.queue2.total_message_count.load(Ordering::SeqCst)
+        self.queue1
+            .total_message_count
+            .load(AtomicOrdering::Relaxed)
+            + self
+                .queue2
+                .total_message_count
+                .load(AtomicOrdering::Relaxed)
+    }
+}
+
+impl<Message: NetworkMessage> Object for Link<Message> {
+    fn get_identifier(&self) -> ObjectId {
+        self.identifier
     }
 }
 
 struct LinkQueue<Message: NetworkMessage> {
     latency: Duration,
 
-    source: WeakRc<Process<Message>>,
-    dest: WeakRc<Process<Message>>,
+    source: Rc<Node<Message>>,
+    dest: Rc<Node<Message>>,
 
     current_message_count: AtomicU32,
     total_message_count: AtomicU64,
 }
 
+#[allow(dead_code)]
+pub fn get_size_delay(size: u64, bandwidth: Bandwidth) -> Duration {
+    // Converts bandwidth bits / microsecond and size to bits
+    let micros = (size * 8 * 1000 * 1000) / (bandwidth * 1024 * 1024);
+
+    Duration::from_micros(micros)
+}
+
 impl<Message: NetworkMessage> LinkQueue<Message> {
-    fn new(
-        latency: Latency,
-        source: WeakRc<Process<Message>>,
-        dest: WeakRc<Process<Message>>,
-    ) -> Self {
+    fn new(latency: Latency, source: Rc<Node<Message>>, dest: Rc<Node<Message>>) -> Self {
         let current_message_count = AtomicU32::new(0);
         let total_message_count = AtomicU64::new(0);
 
@@ -99,41 +138,58 @@ impl<Message: NetworkMessage> LinkQueue<Message> {
         message: Message,
     ) -> (bool, Duration) {
         let latency = self_ptr.latency;
+        //let size_delay = Self::get_size_delay(message.get_size(), self_ptr.bandwidth);
 
         let was_empty = {
-            self_ptr.total_message_count.fetch_add(1, Ordering::SeqCst);
+            self_ptr
+                .total_message_count
+                .fetch_add(1, AtomicOrdering::Relaxed);
             let prev = self_ptr
                 .current_message_count
-                .fetch_add(1, Ordering::SeqCst);
+                .fetch_add(1, AtomicOrdering::Relaxed);
             prev == 0
         };
 
         if was_empty {
-            link.active_queues.fetch_add(1, Ordering::SeqCst);
+            let prev = link.active_queues.fetch_add(1, AtomicOrdering::SeqCst);
+
+            if prev == 0 {
+                link.callback.link_became_active(&link);
+            }
         }
 
         crate::spawn(async move {
+            // Sleep for how long the latency delays a message
+            if !latency.is_zero() {
+                crate::time::sleep(latency).await;
+            }
+
             //TODO re-add link bandwidth
 
             let notify_delivery_fn = {
                 let self_ptr = self_ptr.clone();
-                let link = link.clone();
 
                 Box::new(move || {
                     let prev = self_ptr
                         .current_message_count
-                        .fetch_sub(1, Ordering::SeqCst);
+                        .fetch_sub(1, AtomicOrdering::SeqCst);
                     assert!(prev > 0);
 
+                    // This was the message in this queue, so mark it as inactive
                     if prev == 1 {
-                        link.active_queues.fetch_sub(1, Ordering::SeqCst);
+                        let prev = link.active_queues.fetch_sub(1, AtomicOrdering::SeqCst);
+
+                        // No queues are active anymore, so mark the link as inactive
+                        if prev == 1 {
+                            link.callback.link_became_inactive(&link);
+                        }
                     }
                 })
             };
 
             let dst = self_ptr.get_destination();
             dst.deliver_message(
-                self_ptr.get_source().get_identifier(),
+                self_ptr.source.get_identifier(),
                 message,
                 notify_delivery_fn,
             );
@@ -142,111 +198,74 @@ impl<Message: NetworkMessage> LinkQueue<Message> {
         (was_empty, latency)
     }
 
-    fn get_source(&self) -> Rc<Process<Message>> {
-        self.source.upgrade().unwrap()
+    fn get_source(&self) -> &Rc<Node<Message>> {
+        &self.source
     }
 
-    fn get_destination(&self) -> Rc<Process<Message>> {
-        self.dest.upgrade().unwrap()
+    fn get_destination(&self) -> &Rc<Node<Message>> {
+        &self.dest
     }
 }
 
-/* TOOD re-add event handling
 #[cfg(test)]
 mod tests {
     use std::rc::Rc;
-    use std::sync::mpsc;
 
-    use crate::events::{Event, LinkEvent, EVENT_HANDLER};
-    use crate::logic::DummyLogic;
-    use crate::message::DummyMessage;
-    use crate::process::Node;
-    use crate::Location;
-
-    use task_runner::time::Duration;
-    use task_runner::Timer;
-
-    use super::Link;
-
-    fn get_events(event_receiver: &mpsc::Receiver<Event>) -> Vec<Event> {
-        let mut result = vec![];
-
-        while let Ok(event) = event_receiver.try_recv() {
-            result.push(event);
-        }
-
-        result
-    }
+    use crate::network::link::{get_size_delay, DummyLinkCallback, Link};
+    use crate::network::node::{DummyNodeCallback, Node};
+    use crate::network::{DummyNetworkMessage, Object};
+    use crate::time::Duration;
 
     #[test]
     fn is_active() {
-        let task_runner = Rc::new(TaskRunner::default());
+        let asim = Rc::new(crate::Runtime::default());
+        let (node1, node2, link);
 
-        let logic = Rc::new(DummyLogic::default());
+        {
+            let _ctx = asim.with_context();
+            node1 = Node::new(1000, Box::new(DummyNodeCallback::default()));
+            node2 = Node::new(1000, Box::new(DummyNodeCallback::default()));
 
-        let (event_sender, event_receiver) = mpsc::channel();
+            link = Rc::new(Link::new(
+                Duration::from_millis(50),
+                node1.clone(),
+                node2.clone(),
+                Box::new(DummyLinkCallback::default()),
+            ));
+        }
 
-        EVENT_HANDLER.with(|hdl| {
-            let mut handler = hdl.borrow_mut();
-            if handler.is_none() {
-                *handler = Some(event_sender);
-            }
-        });
-
-        let process1 = Node::new(
-            2,
-            0,
-            Location::default(),
-            1000,
-            &task_runner,
-            logic.clone(),
-        );
-
-        let process2 = Node::new(
-            2,
-            1,
-            Location::default(),
-            1000,
-            &task_runner,
-            logic,
-        );
-
-        let link = Rc::new(Link::new(
-            50,
-            process1.clone(),
-            process2.clone(),
-            task_runner.clone(),
-        ));
-
-        let events = get_events(&event_receiver);
-        assert!(events.is_empty());
-        Link::send(&link, 1, DummyMessage::default().into());
+        {
+            let _ctx = asim.with_context();
+            Link::send(
+                &link,
+                node2.get_identifier(),
+                DummyNetworkMessage::default(),
+            );
+        }
 
         // Sending messages is a two step process (link latency + bandwidth)
-        task_runner.execute_tasks();
+        asim.execute_tasks();
 
-        let events = get_events(&event_receiver);
-        assert_eq!(events.len(), 1);
-        assert_eq!(
-            Event::Link {
-                identifier: 3,
-                event: LinkEvent::Active
-            },
-            events[0]
-        );
+        assert!(link.is_active());
 
-        rutnime.get_timer().advance();
-        task_runner.execute_tasks();
-        task_runner.execute_tasks();
+        asim.get_timer().advance();
+        asim.execute_tasks();
+        asim.execute_tasks();
 
-        let events = get_events(&event_receiver);
-        assert_eq!(events.len(), 1);
-        assert_eq!(
-            Event::Link {
-                identifier: 3,
-                event: LinkEvent::Inactive
-            },
-            events[0]
-        );
+        assert!(!link.is_active());
     }
-}*/
+
+    #[test]
+    fn delay() {
+        // 3 Mbs
+        let size = 3 * 1024 * 1024;
+
+        // 24 Mbits
+        let bandwidth = 24;
+
+        let delay = get_size_delay(size, bandwidth);
+
+        // 8*3 == 24
+        assert_eq!(delay, Duration::from_seconds(1));
+    }
+}

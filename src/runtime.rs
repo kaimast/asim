@@ -25,8 +25,7 @@ impl Default for Runtime {
     }
 }
 
-pub struct ContextLock {
-}
+pub struct ContextLock {}
 
 impl ContextLock {
     fn new(runtime: &Runtime) -> Self {
@@ -38,7 +37,7 @@ impl ContextLock {
             *context = Some(runtime.handle());
         });
 
-        Self{}
+        Self {}
     }
 }
 

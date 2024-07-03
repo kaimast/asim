@@ -88,7 +88,6 @@ impl Duration {
         Self::from_hours(24 * days)
     }
 
-
     pub fn is_zero(&self) -> bool {
         self.0 == 0
     }

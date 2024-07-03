@@ -7,7 +7,7 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::task::{Context, Poll, Waker};
 
-use crate::time::{SleepFut, Duration};
+use crate::time::{Duration, SleepFut};
 
 type CondWaiters = Vec<(Rc<AtomicBool>, Waker)>;
 

@@ -1,4 +1,4 @@
-use asim::{Runtime, time};
+use asim::{time, Runtime};
 
 fn main() {
     env_logger::init().unwrap();
