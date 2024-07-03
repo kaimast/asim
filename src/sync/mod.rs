@@ -1,3 +1,4 @@
+/// Concurrency primitives for asim
 pub mod mpsc;
 
 mod mutex;

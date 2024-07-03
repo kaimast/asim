@@ -34,15 +34,17 @@ impl Ord for TimeEvent {
     }
 }
 
-#[derive(Default)]
 pub struct Timer {
     current_time: Rc<AtomicU64>,
     time_events: Rc<RefCell<BinaryHeap<Reverse<TimeEvent>>>>,
 }
 
 impl Timer {
-    pub fn new() -> Self {
-        Self::default()
+    pub(crate) fn new() -> Self {
+        Self {
+            current_time: Default::default(),
+            time_events: Default::default(),
+        }
     }
 
     /// Current simulation time (in milliseconds)
@@ -64,6 +66,7 @@ impl Timer {
         }
     }
 
+    /// Make this task wait for the specified duration
     #[must_use]
     pub fn sleep_for(&self, duration: Duration) -> SleepFut {
         if duration.is_zero() {

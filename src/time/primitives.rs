@@ -1,12 +1,10 @@
 use serde::{Deserialize, Serialize};
 
-/// The time at which the simulation started
-pub const START_TIME: Time = Time(0);
-
-/// Elapsed time in nanoseconds
+/// Elapsed simulated time in nanoseconds
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq)]
 pub struct Time(u64);
 
+/// A period of simulated time
 #[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd, Ord, Eq)]
 pub struct Duration(u64);
 
@@ -191,6 +189,9 @@ impl std::fmt::Display for Time {
         write!(w, "{secs:02}s {millis:.3}ms")
     }
 }
+
+/// The time at which the simulation started
+pub const START_TIME: Time = Time(0);
 
 #[cfg(test)]
 mod tests {

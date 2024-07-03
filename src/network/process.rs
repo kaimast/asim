@@ -4,10 +4,10 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::sync::mpsc;
-use crate::{TaskRunner, Timer};
 
 use crate::network::{get_size_delay, Bandwidth, Latency, Link, NetworkMessage};
 
+/// The unique identifier of a project
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ProcessId(u32);
 
@@ -25,6 +25,7 @@ impl std::fmt::Display for ProcessId {
 
 pub type NotifyDeliveryFn = Box<dyn FnOnce()>;
 
+/// Implement this trait to add custom logic to a process
 #[ async_trait::async_trait(?Send) ]
 pub trait ProcessLogic<Message: NetworkMessage>: Any {
     fn start(&self, process: &Process<Message>);
@@ -35,41 +36,38 @@ pub trait ProcessLogic<Message: NetworkMessage>: Any {
     fn handle_disconnect(&self, _process: &Process<Message>, _peer: ProcessId) {}
 }
 
+/// A Process represents a node in the network
+/// It can communicate with other processed using a Link
 pub struct Process<Message: NetworkMessage> {
     identifier: ProcessId,
     inbox_sender: mpsc::Sender<(ProcessId, Message, NotifyDeliveryFn)>,
     bandwidth: Bandwidth,
-    task_runner: Rc<TaskRunner>,
-    timer: Rc<Timer>,
     logic: Box<dyn ProcessLogic<Message>>,
     network_links: RefCell<HashMap<ProcessId, Rc<Link<Message>>>>,
 }
 
 impl<Message: NetworkMessage> Process<Message> {
-    pub fn new(
-        bandwidth: Bandwidth,
-        logic: Box<dyn ProcessLogic<Message>>,
-        task_runner: Rc<TaskRunner>,
-        timer: Rc<Timer>,
-    ) -> Rc<Self> {
+    /// Create a new process
+    ///
+    /// * bandwidth: The network bandwidth of this node
+    /// * logic: The custom logic for your simulation
+    pub fn new(bandwidth: Bandwidth, logic: Box<dyn ProcessLogic<Message>>) -> Rc<Self> {
         let (inbox_sender, inbox_receiver) = mpsc::channel();
 
         let obj = Rc::new(Self {
             identifier: ProcessId::random(),
             bandwidth,
             inbox_sender,
-            timer,
             logic,
-            task_runner,
             network_links: RefCell::new(HashMap::default()),
         });
 
         obj.logic.start(&obj);
 
         {
-            let obj2 = obj.clone();
-            obj.task_runner.spawn(async move {
-                Self::inbox_loop(obj2, inbox_receiver).await;
+            let obj = obj.clone();
+            crate::spawn(async move {
+                Self::inbox_loop(obj, inbox_receiver).await;
             });
         }
 
@@ -80,10 +78,12 @@ impl<Message: NetworkMessage> Process<Message> {
         self.identifier
     }
 
+    /// Shut down this process
     pub fn stop(&self) {
         self.logic.stop(self);
     }
 
+    /// Close all connections to/from this process
     pub fn disconnect_all(&self) {
         let mut links = self.network_links.borrow_mut();
 
@@ -111,12 +111,8 @@ impl<Message: NetworkMessage> Process<Message> {
         links.clear();
     }
 
-    pub fn connect(
-        task_runner: Rc<TaskRunner>,
-        process1: &Rc<Self>,
-        process2: &Rc<Self>,
-        link_latency: Latency,
-    ) {
+    /// Connect this process to another one
+    pub fn connect(process1: &Rc<Self>, process2: &Rc<Self>, link_latency: Latency) {
         log::trace!(
             "Connecting process {} and {}",
             process1.get_identifier(),
@@ -127,7 +123,6 @@ impl<Message: NetworkMessage> Process<Message> {
             link_latency,
             Rc::downgrade(process1),
             Rc::downgrade(process2),
-            task_runner,
         ));
 
         process1
@@ -160,13 +155,13 @@ impl<Message: NetworkMessage> Process<Message> {
                 let size_delay = get_size_delay(size, self_ptr.bandwidth);
 
                 if !size_delay.is_zero() {
-                    self_ptr.timer.sleep_for(size_delay).await;
+                    crate::time::sleep(size_delay).await;
                 }
 
                 notify_delivery_fn();
 
                 let self_ptr2 = self_ptr.clone();
-                self_ptr.task_runner.spawn(async move {
+                crate::spawn(async move {
                     self_ptr2
                         .logic
                         .handle_message(&*self_ptr2, source, message)
@@ -176,6 +171,7 @@ impl<Message: NetworkMessage> Process<Message> {
         }
     }
 
+    /// Returns the connection to another process with the specified identifier (if it exists)
     pub fn get_link_to(&self, process_id: &ProcessId) -> Option<Rc<Link<Message>>> {
         match self.network_links.borrow().get(process_id) {
             Some(link) => Some(link.clone()),
@@ -189,6 +185,9 @@ impl<Message: NetworkMessage> Process<Message> {
         }
     }
 
+    /// Send a message to the process with the specified identifier
+    ///
+    /// Returns false if no connection to the process existed
     pub fn send_to(&self, process_id: &ProcessId, message: Message) -> bool {
         if let Some(link) = self.get_link_to(process_id) {
             Link::send(&link, self.identifier, message);
@@ -198,6 +197,10 @@ impl<Message: NetworkMessage> Process<Message> {
         }
     }
 
+    /// Get the custom logic associated with this process and convert it
+    /// to the specified type.
+    ///
+    /// Allows to easily attach different logics to a process.
     pub fn get_logic_as<T: ProcessLogic<Message>>(&self) -> &'_ T {
         let logic_ref = &self.logic as &dyn Any;
 

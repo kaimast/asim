@@ -1,5 +1,4 @@
 use crate::time::Duration;
-use crate::TaskRunner;
 
 use std::cmp::Ordering as CmpOrdering;
 use std::rc::{Rc, Weak as WeakRc};
@@ -7,12 +6,12 @@ use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 
 use crate::network::{Latency, NetworkMessage, Process, ProcessId};
 
+/// Represents the connection between two processes
+///
 /// Each link consists of two messages queues, one for each direction
 pub struct Link<Message: NetworkMessage> {
     queue1: Rc<LinkQueue<Message>>,
     queue2: Rc<LinkQueue<Message>>,
-
-    task_runner: Rc<TaskRunner>,
 
     active_queues: AtomicU32,
 }
@@ -22,7 +21,6 @@ impl<Message: NetworkMessage> Link<Message> {
         latency: Latency,
         process1: WeakRc<Process<Message>>,
         process2: WeakRc<Process<Message>>,
-        task_runner: Rc<TaskRunner>,
     ) -> Self {
         let queue1 = Rc::new(LinkQueue::new(latency, process1.clone(), process2.clone()));
 
@@ -33,7 +31,6 @@ impl<Message: NetworkMessage> Link<Message> {
         Self {
             queue1,
             queue2,
-            task_runner,
             active_queues,
         }
     }
@@ -101,8 +98,6 @@ impl<Message: NetworkMessage> LinkQueue<Message> {
         link: Rc<Link<Message>>,
         message: Message,
     ) -> (bool, Duration) {
-        let task_runner = link.task_runner.clone();
-
         let latency = self_ptr.latency;
 
         let was_empty = {
@@ -117,7 +112,7 @@ impl<Message: NetworkMessage> LinkQueue<Message> {
             link.active_queues.fetch_add(1, Ordering::SeqCst);
         }
 
-        task_runner.spawn(async move {
+        crate::spawn(async move {
             //TODO re-add link bandwidth
 
             let notify_delivery_fn = {
@@ -162,8 +157,6 @@ mod tests {
     use std::rc::Rc;
     use std::sync::mpsc;
 
-    use crate::TaskRunner;
-
     use crate::events::{Event, LinkEvent, EVENT_HANDLER};
     use crate::logic::DummyLogic;
     use crate::message::DummyMessage;
@@ -187,7 +180,6 @@ mod tests {
 
     #[test]
     fn is_active() {
-        let timer = Rc::new(Timer::new());
         let task_runner = Rc::new(TaskRunner::default());
 
         let logic = Rc::new(DummyLogic::default());
@@ -206,7 +198,6 @@ mod tests {
             0,
             Location::default(),
             1000,
-            timer.clone(),
             &task_runner,
             logic.clone(),
         );
@@ -216,7 +207,6 @@ mod tests {
             1,
             Location::default(),
             1000,
-            timer.clone(),
             &task_runner,
             logic,
         );
@@ -245,7 +235,7 @@ mod tests {
             events[0]
         );
 
-        timer.advance();
+        rutnime.get_timer().advance();
         task_runner.execute_tasks();
         task_runner.execute_tasks();
 

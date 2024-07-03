@@ -1,3 +1,8 @@
+/// Utilities to simulate a network
+///
+/// There are two important primitives in this module
+///     * Processes represent individual nodes in the network
+///     * Links are connection between the nodes
 use crate::time::Duration;
 
 mod process;
