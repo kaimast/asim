@@ -6,10 +6,10 @@
 use crate::time::Duration;
 
 mod node;
-pub use node::{Node, NodeData, NodeCallback, DummyNodeCallback, DummyNodeData};
+pub use node::{DummyNodeCallback, DummyNodeData, Node, NodeCallback, NodeData};
 
 mod link;
-pub use link::{Link, LinkCallback, DummyLinkCallback};
+pub use link::{DummyLinkCallback, Link, LinkCallback};
 
 mod object;
 pub use object::{Object, ObjectId};
@@ -30,11 +30,11 @@ impl Bandwidth {
     }
 }
 
-pub trait NetworkMessage: Clone+'static {
+pub trait NetworkMessage: Clone + 'static {
     fn get_size(&self) -> u64;
 }
 
-#[derive(Default,Clone)]
+#[derive(Default, Clone)]
 pub struct DummyNetworkMessage {}
 
 impl NetworkMessage for DummyNetworkMessage {

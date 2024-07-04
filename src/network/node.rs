@@ -126,33 +126,21 @@ impl<Message: NetworkMessage, Data: NodeData> Node<Message, Data> {
     }
 
     /// Connect this node to another one
+    ///
+    /// Returns a reference to the newly created link
     pub fn connect(
-        node1: &Rc<Self>,
-        node2: &Rc<Self>,
+        node1: Rc<Self>,
+        node2: Rc<Self>,
         link_latency: Latency,
         callback: Box<dyn LinkCallback<Message, Data>>,
-    ) {
+    ) -> Rc<Self::Link> {
         log::trace!(
             "Connecting node {} and {}",
             node1.get_identifier(),
             node2.get_identifier()
         );
 
-        let link = Rc::new(Link::new(
-            link_latency,
-            node1.clone(),
-            node2.clone(),
-            callback,
-        ));
-
-        node1
-            .network_links
-            .borrow_mut()
-            .insert(node2.get_identifier(), link.clone());
-        node2
-            .network_links
-            .borrow_mut()
-            .insert(node1.get_identifier(), link);
+        Link::new(node1, node2, link_latency, callback)
     }
 
     pub(super) fn deliver_message(
@@ -217,7 +205,7 @@ impl<Message: NetworkMessage, Data: NodeData> Node<Message, Data> {
         }
     }
 
-     pub fn broadcast(&self, message: Message, ignore: Option<ObjectId>) {
+    pub fn broadcast(&self, message: Message, ignore: Option<ObjectId>) {
         let links = self.network_links.borrow();
 
         if links.is_empty() {
@@ -245,6 +233,17 @@ impl<Message: NetworkMessage, Data: NodeData> Node<Message, Data> {
         }
     }
 
+    /// Let the node know a new network connection exists
+    ///
+    /// Should only be called by Link's constructor
+    pub(crate) fn add_link(&self, dest: ObjectId, link: Rc<Self::Link>) {
+        let mut network_links = self.network_links.borrow_mut();
+        let prev = network_links.insert(dest, link);
+
+        if prev.is_some() {
+            panic!("Already had a network link for this connection");
+        }
+    }
 
     /// Get the callback associated with this node
     pub fn get_callback(&self) -> &dyn NodeCallback<Message, Data> {
@@ -273,7 +272,6 @@ impl<Message: NetworkMessage, Data: NodeData> Object for Node<Message, Data> {
         self.identifier
     }
 }
-
 
 impl<Message: NetworkMessage, Data: NodeData> std::ops::Deref for Node<Message, Data> {
     type Target = Data;

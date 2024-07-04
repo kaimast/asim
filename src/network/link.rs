@@ -38,24 +38,30 @@ impl<Message: NetworkMessage, Data: NodeData> Link<Message, Data> {
     pub type Callback = dyn LinkCallback<Message, Data>;
 
     pub(super) fn new(
-        latency: Latency,
         node1: Rc<Self::Node>,
         node2: Rc<Self::Node>,
+        latency: Latency,
         callback: Box<Self::Callback>,
-    ) -> Self {
+    ) -> Rc<Self> {
         let queue1 = Rc::new(LinkQueue::new(latency, node1.clone(), node2.clone()));
 
         let queue2 = Rc::new(LinkQueue::new(latency, node2, node1));
 
         let active_queues = AtomicU32::new(0);
 
-        Self {
+        let obj = Rc::new(Self {
             identifier: ObjectId::random(),
             queue1,
             queue2,
             active_queues,
             callback,
-        }
+        });
+
+        let (node1, node2) = obj.get_nodes();
+        node1.add_link(node2.get_identifier(), obj.clone());
+        node2.add_link(node1.get_identifier(), obj.clone());
+
+        obj
     }
 
     /// Does the link currently have any messages in transit?
@@ -243,9 +249,9 @@ mod tests {
             );
 
             link = Rc::new(Link::new(
-                Duration::from_millis(50),
                 node1.clone(),
                 node2.clone(),
+                Duration::from_millis(50),
                 Box::new(DummyLinkCallback::default()),
             ));
         }
