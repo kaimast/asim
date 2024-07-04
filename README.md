@@ -1,5 +1,6 @@
 # Asynchronous (Discrete Event) Simulator
 
+[![ci-badge](https://github.com/kaimast/asim/actions/workflows/ci.yml/badge.svg)](https://github.com/kaimast/asim/actions)
 [![license-badge](https://img.shields.io/crates/l/asim)](https://github.com/kaimast/asim/blob/main/LICENSE)
 [![crates-badge](https://img.shields.io/crates/v/asim)](https://crates.io/crates/asim)
 [![docs.rs](https://img.shields.io/docsrs/asim)](https://docs.rs/asim)
