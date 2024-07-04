@@ -12,6 +12,11 @@ This is achieved by providing an API similar to that of the standard library or 
 This crate provides the simulator itself, a timer that allows an asynchronous task to sleep, and synchronization primitives.
 Additionally, it includes basic primitives for processes and links that can be used to jump start your process.
 
+## Usage
+Take a look at the tests and examples to get an idea how this library is intended to be used.
+
+Feel free to open an issue if some parts of this crate lack documentation.
+
 ## Project Status
 This project is still in early development and many parts of the API are subject to change.
 
@@ -22,3 +27,5 @@ The following crates that also implement event simulation exist. Both of them ar
 
 * [sim](https://docs.rs/sim/latest/sim/)
 * [desim](https://docs.rs/desim/latest/desim/)
+
+I am sure this list is incomplete. Please let me know of any other crates, and I will extend it.

@@ -21,6 +21,10 @@ pub type Latency = Duration;
 pub struct Bandwidth(u64);
 
 impl Bandwidth {
+    pub fn from_megabytes_per_second(mbps: u64) -> Self {
+        Self::from_megabits_per_second(8 * mbps)
+    }
+
     pub fn from_megabits_per_second(mbps: u64) -> Self {
         Self(mbps * 1024 * 1024)
     }

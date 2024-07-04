@@ -14,19 +14,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - name: Install rustc and clippy nightly
+    - name: "Install rustc and clippy nightly"
       uses: dtolnay/rust-toolchain@stable
       with:
          toolchain: nightly-2024-07-03 # this has to match rust-toolchain.toml
          components: cargo, rustc, clippy, rustfmt
-    - name: Setup just
+    - name: "Setup just"
       run: cargo install just
-    - name: Setup rust dependency caching
+    - name: "Setup rust dependency caching"
       uses: Swatinem/rust-cache@v2
-    - name: Unit Tests
+    - name: "Unit Tests"
       run: just test
       timeout-minutes: 5
     - name: "Lint checks"
-      run: just lint-cmd
+      run: just lint
     - name: "Formatting checks"
       run: cargo fmt --check
