@@ -49,3 +49,23 @@ pub fn get_size_delay(size: u64, bandwidth: Bandwidth) -> Duration {
 
     Duration::from_micros(micros)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{get_size_delay, Bandwidth};
+    use crate::time::Duration;
+
+    #[test]
+    fn delay() {
+        // 3 Mbs
+        let size = 3 * 1024 * 1024;
+
+        // 24 Mbits
+        let bandwidth = Bandwidth::from_megabits_per_second(24);
+
+        let delay = get_size_delay(size, bandwidth);
+
+        // 8*3 == 24
+        assert_eq!(delay, Duration::from_seconds(1));
+    }
+}

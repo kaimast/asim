@@ -1,19 +1,20 @@
+use std::any::Any;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::sync::mpsc;
 
-use crate::network::{DummyNetworkMessage, Latency, NetworkMessage};
+use crate::network::{get_size_delay, Bandwidth, DummyNetworkMessage, Latency, NetworkMessage};
 
-use crate::network::link::{get_size_delay, Bandwidth, Link, LinkCallback};
+use crate::network::link::{Link, LinkCallback};
 use crate::network::{Object, ObjectId};
 
 pub type NotifyDeliveryFn = Box<dyn FnOnce()>;
 
 /// Implement this trait to add custom logic to a node
 #[ async_trait::async_trait(?Send) ]
-pub trait NodeCallback<Message: NetworkMessage, Data: NodeData> {
+pub trait NodeCallback<Message: NetworkMessage, Data: NodeData>: Any {
     fn node_started(&self, _node: &Node<Message, Data>) {}
     fn node_stopped(&self, _node: &Node<Message, Data>) {}
 
@@ -196,9 +197,9 @@ impl<Message: NetworkMessage, Data: NodeData> Node<Message, Data> {
     /// Send a message to the node with the specified identifier
     ///
     /// Returns false if no connection to the node existed
-    pub fn send_to(&self, node_id: &ObjectId, message: Message) -> bool {
+    pub fn send_to<M: Into<Message>>(&self, node_id: &ObjectId, message: M) -> bool {
         if let Some(link) = self.get_link_to(node_id) {
-            Link::send(&link, self.identifier, message);
+            Link::send(&link, self.identifier, message.into());
             true
         } else {
             false
@@ -248,6 +249,15 @@ impl<Message: NetworkMessage, Data: NodeData> Node<Message, Data> {
     /// Get the callback associated with this node
     pub fn get_callback(&self) -> &dyn NodeCallback<Message, Data> {
         &*self.callback
+    }
+
+    /// Get the callback associated with this node
+    ///
+    /// And downcast it to the specific type
+    pub fn get_callback_as<T: NodeCallback<Message, Data>>(&self) -> &T {
+        (self.callback.as_ref() as &dyn Any)
+            .downcast_ref()
+            .expect("Incompatible callback type")
     }
 
     pub fn get_data(&self) -> &Data {

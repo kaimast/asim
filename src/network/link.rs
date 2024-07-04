@@ -8,9 +8,6 @@ use crate::network::node::{DummyNodeData, NodeData};
 use crate::network::{DummyNetworkMessage, Latency, NetworkMessage, Object, ObjectId};
 use crate::time::Duration;
 
-/// Network bandwidth in Megabits per second
-pub type Bandwidth = u64;
-
 /// Each link consists of two messages queues, one for each direction
 pub struct Link<Message: NetworkMessage, Data: NodeData> {
     identifier: ObjectId,
@@ -24,6 +21,7 @@ pub struct Link<Message: NetworkMessage, Data: NodeData> {
 }
 
 pub trait LinkCallback<Message: NetworkMessage, Data: NodeData> {
+    fn message_sent(&self, _source: &ObjectId, _destination: &ObjectId, _message: &Message) {}
     fn link_became_active(&self, _link: &Link<Message, Data>) {}
     fn link_became_inactive(&self, _link: &Link<Message, Data>) {}
 }
@@ -118,14 +116,6 @@ struct LinkQueue<Message: NetworkMessage, Data: NodeData> {
 
     current_message_count: AtomicU32,
     total_message_count: AtomicU64,
-}
-
-#[allow(dead_code)]
-pub fn get_size_delay(size: u64, bandwidth: Bandwidth) -> Duration {
-    // Converts bandwidth bits / microsecond and size to bits
-    let micros = (size * 8 * 1000 * 1000) / (bandwidth * 1024 * 1024);
-
-    Duration::from_micros(micros)
 }
 
 impl<Message: NetworkMessage, Data: NodeData> LinkQueue<Message, Data> {
@@ -225,10 +215,11 @@ impl<Message: NetworkMessage, Data: NodeData> LinkQueue<Message, Data> {
 mod tests {
     use std::rc::Rc;
 
-    use crate::network::link::{get_size_delay, DummyLinkCallback, Link};
     use crate::network::node::{DummyNodeCallback, DummyNodeData, Node};
-    use crate::network::{DummyNetworkMessage, Object};
+    use crate::network::{Bandwidth, DummyNetworkMessage, Object};
     use crate::time::Duration;
+
+    use super::{DummyLinkCallback, Link};
 
     #[test]
     fn is_active() {
@@ -238,12 +229,12 @@ mod tests {
         {
             let _ctx = asim.with_context();
             node1 = Node::new(
-                1000,
+                Bandwidth::from_megabits_per_second(1000),
                 DummyNodeData::default(),
                 Box::new(DummyNodeCallback::default()),
             );
             node2 = Node::new(
-                1000,
+                Bandwidth::from_megabits_per_second(1000),
                 DummyNodeData::default(),
                 Box::new(DummyNodeCallback::default()),
             );
@@ -275,19 +266,5 @@ mod tests {
         asim.execute_tasks();
 
         assert!(!link.is_active());
-    }
-
-    #[test]
-    fn delay() {
-        // 3 Mbs
-        let size = 3 * 1024 * 1024;
-
-        // 24 Mbits
-        let bandwidth = 24;
-
-        let delay = get_size_delay(size, bandwidth);
-
-        // 8*3 == 24
-        assert_eq!(delay, Duration::from_seconds(1));
     }
 }
