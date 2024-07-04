@@ -1,12 +1,16 @@
 [package]
 name = "asim"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "MIT"
 description = "Discrete Event Simluation for Async Rust"
 repository = "https://github.com/kaimast/asim"
 
+[workspace]
+members = ["macros"]
+
 [dependencies]
+asim-macros = { path="macros" }
 log = "0.4"
 futures = "0.3"
 parking_lot = "0.12"
@@ -15,3 +19,6 @@ instant = "0.1"
 serde = { version="1", features=["derive"] }
 async-trait = "0.1"
 rand = "0.8"
+
+[dev-dependencies]
+env_logger = "0.4"

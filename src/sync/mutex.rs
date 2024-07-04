@@ -257,7 +257,7 @@ mod tests {
         {
             let waker = Arc::new(DummyWaker {});
             let waker = waker_ref(&waker);
-            let context = &mut Context::from_waker(&*waker);
+            let context = &mut Context::from_waker(&waker);
 
             let mut lock_fut = mutex.lock();
             let res = LockFuture::poll(Pin::new(&mut lock_fut), context);
@@ -265,7 +265,7 @@ mod tests {
 
             let waker = Arc::new(DummyWaker {});
             let waker = waker_ref(&waker);
-            let context = &mut Context::from_waker(&*waker);
+            let context = &mut Context::from_waker(&waker);
 
             // This lock should fail as the other one is still held
             let mut lock_fut = mutex.lock();
@@ -277,7 +277,7 @@ mod tests {
         {
             let waker = Arc::new(DummyWaker {});
             let waker = waker_ref(&waker);
-            let context = &mut Context::from_waker(&*waker);
+            let context = &mut Context::from_waker(&waker);
 
             let mut lock_fut = mutex.lock();
             let res = LockFuture::poll(Pin::new(&mut lock_fut), context);
@@ -293,7 +293,7 @@ mod tests {
         // Need to grab lock before calling wait
         let waker = Arc::new(DummyWaker {});
         let waker = waker_ref(&waker);
-        let context = &mut Context::from_waker(&*waker);
+        let context = &mut Context::from_waker(&waker);
 
         let mut lock_fut = mutex.lock();
         let lock_guard =

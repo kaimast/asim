@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: "Install rustc and clippy nightly"
+      uses: dtolnay/rust-toolchain@stable
+      with:
+         toolchain: nightly-2024-07-03 # this has to match rust-toolchain.toml
+         components: cargo, rustc, clippy, rustfmt
+    - name: "Setup just"
+      run: cargo install just
+    - name: "Setup rust dependency caching"
+      uses: Swatinem/rust-cache@v2
+    - name: "Unit Tests"
+      run: just test
+      timeout-minutes: 5
+    - name: "Lint checks"
+      run: just lint
+    - name: "Formatting checks"
+      run: cargo fmt --check

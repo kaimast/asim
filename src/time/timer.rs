@@ -34,15 +34,17 @@ impl Ord for TimeEvent {
     }
 }
 
-#[derive(Default)]
 pub struct Timer {
     current_time: Rc<AtomicU64>,
     time_events: Rc<RefCell<BinaryHeap<Reverse<TimeEvent>>>>,
 }
 
 impl Timer {
-    pub fn new() -> Self {
-        Self::default()
+    pub(crate) fn new() -> Self {
+        Self {
+            current_time: Default::default(),
+            time_events: Default::default(),
+        }
     }
 
     /// Current simulation time (in milliseconds)
@@ -52,18 +54,22 @@ impl Timer {
     }
 
     /// Advance time to the next event and schedule it to be run
-    pub fn advance(&self) {
+    ///
+    /// Return true if any time event existed
+    pub fn advance(&self) -> bool {
         let mut time_events = self.time_events.borrow_mut();
         if let Some(Reverse(time_event)) = time_events.pop() {
             // Move to the time of the next event
             self.current_time
                 .store(time_event.wake_time.as_micros(), Ordering::SeqCst);
             time_event.waker.wake();
+            true
         } else {
-            panic!("No time event left");
+            false
         }
     }
 
+    /// Make this task wait for the specified duration
     #[must_use]
     pub fn sleep_for(&self, duration: Duration) -> SleepFut {
         if duration.is_zero() {

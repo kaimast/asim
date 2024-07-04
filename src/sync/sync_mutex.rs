@@ -1,3 +1,4 @@
+/// Primitives that are *not* safe to use while await'ing, but more lightweight
 use std::cell::{RefCell, RefMut};
 use std::future::Future;
 use std::ops::{Deref, DerefMut};
@@ -6,9 +7,7 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::task::{Context, Poll, Waker};
 
-use crate::time::Duration;
-use crate::timer::SleepFut;
-use crate::Timer;
+use crate::time::{Duration, SleepFut};
 
 type CondWaiters = Vec<(Rc<AtomicBool>, Waker)>;
 
@@ -26,7 +25,7 @@ pub struct SyncCondWait<'a, T> {
 pub struct SyncCondTimeoutWait<'a, T> {
     mutex: &'a SyncMutex<T>,
     woken: Rc<AtomicBool>,
-    sleep_fut: crate::timer::SleepFut,
+    sleep_fut: SleepFut,
     waiters: Rc<RefCell<CondWaiters>>,
 }
 
@@ -129,7 +128,6 @@ impl SyncCondvar {
     pub fn wait_with_timeout<'a, T>(
         &self,
         lock: SyncLockGuard<'a, T>,
-        timer: &'a Timer,
         timeout: Duration,
     ) -> SyncCondTimeoutWait<'a, T> {
         assert!(!timeout.is_zero());
@@ -137,7 +135,7 @@ impl SyncCondvar {
 
         SyncCondTimeoutWait {
             mutex,
-            sleep_fut: timer.sleep_for(timeout),
+            sleep_fut: crate::time::sleep(timeout),
             waiters: self.waiters.clone(),
             woken: Rc::new(AtomicBool::new(false)),
         }
