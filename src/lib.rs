@@ -11,6 +11,7 @@ use std::future::Future;
 
 pub mod sync;
 
+#[cfg(feature = "network")]
 pub mod network;
 
 pub mod time;

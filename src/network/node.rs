@@ -182,6 +182,10 @@ impl<Message: NetworkMessage, Data: NodeData> Node<Message, Data> {
 
     /// Returns the connection to another node with the specified identifier (if it exists)
     pub fn get_link_to(&self, node_id: &ObjectId) -> Option<Rc<Link<Message, Data>>> {
+        if *node_id == self.identifier {
+            panic!("There cannot be a link to the node itself");
+        }
+
         match self.network_links.borrow().get(node_id) {
             Some(link) => Some(link.clone()),
             None => {
