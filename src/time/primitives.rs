@@ -1,7 +1,9 @@
+#[cfg(feature="serde")]
 use serde::{Deserialize, Serialize};
 
 /// Elapsed simulated time in nanoseconds
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq)]
 pub struct Time(u64);
 
 /// A period of simulated time
