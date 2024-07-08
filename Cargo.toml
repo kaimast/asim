@@ -14,11 +14,19 @@ asim-macros = { path="macros" }
 log = "0.4"
 futures = "0.3"
 parking_lot = "0.12"
-tokio = { version="1", features=["sync", "time", "macros", "rt"], default-features=false }
-instant = "0.1"
-serde = { version="1", features=["derive"] }
+tokio = { version="1", features=["sync"], default-features=false }
+serde = { version="1", features=["derive"], optional=true }
 async-trait = "0.1"
-rand = "0.8"
+rand = { version="0.8", optional=true }
+
+[[test]]
+name = "speed-test"
+path = "tests/speed_test.rs"
+required-features = ["network"]
 
 [dev-dependencies]
 env_logger = "0.4"
+
+[features]
+default = ["network", "serde"]
+network = ["dep:rand"]
