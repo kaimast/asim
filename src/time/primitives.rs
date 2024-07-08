@@ -1,4 +1,4 @@
-#[cfg(feature="serde")]
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// Elapsed simulated time in nanoseconds
