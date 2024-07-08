@@ -10,7 +10,7 @@ repository = "https://github.com/kaimast/asim"
 members = ["macros"]
 
 [dependencies]
-asim-macros = { path="macros" }
+asim-macros = { path="macros", optional=true }
 log = "0.4"
 futures = "0.3"
 parking_lot = "0.12"
@@ -28,5 +28,6 @@ required-features = ["network"]
 env_logger = "0.4"
 
 [features]
-default = ["network", "serde"]
+default = ["network", "serde", "macros"]
 network = ["dep:rand"]
+macros = ["dep:asim-macros"]

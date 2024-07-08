@@ -50,3 +50,40 @@ pub fn test(_args: TokenStream, item: TokenStream) -> TokenStream {
 
     result.into()
 }
+
+#[proc_macro_attribute]
+pub fn main(_args: TokenStream, item: TokenStream) -> TokenStream {
+    let mut input: ItemFn = match syn::parse2(item.clone().into()) {
+        Ok(it) => it,
+        Err(e) => return token_stream_with_error(item, e),
+    };
+
+    if input.sig.asyncness.is_none() {
+        panic!("the `async` keyword is missing from the main function declaration");
+    }
+
+    input.sig.asyncness = None;
+
+    let body = &input.block;
+    let brace_token = input.block.brace_token;
+
+    let asim_expr = quote! {
+        asim::Runtime::new().block_on(async {
+            #body
+        });
+    };
+
+    input.block = syn::parse2(quote! {
+        {
+            #asim_expr
+        }
+    })
+    .expect("Parsing failure");
+    input.block.brace_token = brace_token;
+
+    let result = quote! {
+        #input
+    };
+
+    result.into()
+}

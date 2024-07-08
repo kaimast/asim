@@ -19,7 +19,8 @@ pub mod time;
 pub mod runtime;
 pub use runtime::Runtime;
 
-pub use asim_macros::test;
+#[cfg(feature = "macros")]
+pub use asim_macros::{main, test};
 
 mod task;
 pub use task::Task;
