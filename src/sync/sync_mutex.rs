@@ -68,13 +68,13 @@ impl<T: Default> Default for SyncMutex<T> {
 impl<T> Deref for SyncLockGuard<'_, T> {
     type Target = T;
 
-    fn deref(&self) -> &Self::Target {
+    fn deref(&self) -> &T {
         &self.data
     }
 }
 
 impl<T> DerefMut for SyncLockGuard<'_, T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
+    fn deref_mut(&mut self) -> &mut T {
         &mut self.data
     }
 }
@@ -82,7 +82,7 @@ impl<T> DerefMut for SyncLockGuard<'_, T> {
 impl<'a, T> Future for SyncCondWait<'a, T> {
     type Output = SyncLockGuard<'a, T>;
 
-    fn poll(self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<SyncLockGuard<'a, T>> {
         if self.woken.load(Ordering::SeqCst) {
             Poll::Ready(self.mutex.lock())
         } else {
@@ -96,7 +96,7 @@ impl<'a, T> Future for SyncCondWait<'a, T> {
 impl<'a, T> Future for SyncCondTimeoutWait<'a, T> {
     type Output = SyncLockGuard<'a, T>;
 
-    fn poll(mut self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<SyncLockGuard<'a, T>> {
         if self.woken.load(Ordering::SeqCst) {
             Poll::Ready(self.mutex.lock())
         } else if SleepFut::poll(Pin::new(&mut self.sleep_fut), ctx) == Poll::Ready(()) {

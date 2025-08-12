@@ -32,14 +32,11 @@ pub struct DummyLinkCallback {}
 impl LinkCallback<DummyNetworkMessage, DummyNodeData> for DummyLinkCallback {}
 
 impl<Message: NetworkMessage, Data: NodeData> Link<Message, Data> {
-    pub type Node = Node<Message, Data>;
-    pub type Callback = dyn LinkCallback<Message, Data>;
-
     pub(super) fn new(
-        node1: Rc<Self::Node>,
-        node2: Rc<Self::Node>,
+        node1: Rc<Node<Message, Data>>,
+        node2: Rc<Node<Message, Data>>,
         latency: Latency,
-        callback: Box<Self::Callback>,
+        callback: Box<dyn LinkCallback<Message, Data>>,
     ) -> Rc<Self> {
         let queue1 = Rc::new(LinkQueue::new(latency, node1.clone(), node2.clone()));
 
@@ -69,7 +66,8 @@ impl<Message: NetworkMessage, Data: NodeData> Link<Message, Data> {
 
     /// Get the two nodes connected with this link
     /// Always sorted by smallest id first
-    pub fn get_nodes(&self) -> (&Rc<Self::Node>, &Rc<Self::Node>) {
+    #[allow(clippy::type_complexity)]
+    pub fn get_nodes(&self) -> (&Rc<Node<Message, Data>>, &Rc<Node<Message, Data>>) {
         let node1 = self.queue1.get_source();
         let node2 = self.queue1.get_destination();
 

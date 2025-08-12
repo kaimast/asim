@@ -97,7 +97,7 @@ pub struct SleepFut {
 impl Future for SleepFut {
     type Output = ();
 
-    fn poll(self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<()> {
         let now = {
             let micros = self.current_time.load(Ordering::SeqCst);
             Time::from_micros(micros)

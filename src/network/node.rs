@@ -62,14 +62,15 @@ pub struct Node<Message: NetworkMessage, Data: NodeData> {
 }
 
 impl<Message: NetworkMessage, Data: NodeData> Node<Message, Data> {
-    pub type Link = Link<Message, Data>;
-    pub type Callback = dyn NodeCallback<Message, Data>;
-
     /// Create a new node
     ///
     /// * bandwidth: The network bandwidth of this node
     /// * logic: The custom logic for your simulation
-    pub fn new(bandwidth: Bandwidth, data: Data, callback: Box<Self::Callback>) -> Rc<Self> {
+    pub fn new(
+        bandwidth: Bandwidth,
+        data: Data,
+        callback: Box<dyn NodeCallback<Message, Data>>,
+    ) -> Rc<Self> {
         let (inbox_sender, inbox_receiver) = mpsc::channel();
 
         let obj = Rc::new(Self {
@@ -134,7 +135,7 @@ impl<Message: NetworkMessage, Data: NodeData> Node<Message, Data> {
         node2: Rc<Self>,
         link_latency: Latency,
         callback: Box<dyn LinkCallback<Message, Data>>,
-    ) -> Rc<Self::Link> {
+    ) -> Rc<Link<Message, Data>> {
         log::trace!(
             "Connecting node {} and {}",
             node1.get_identifier(),
@@ -241,7 +242,7 @@ impl<Message: NetworkMessage, Data: NodeData> Node<Message, Data> {
     /// Let the node know a new network connection exists
     ///
     /// Should only be called by Link's constructor
-    pub(crate) fn add_link(&self, dest: ObjectId, link: Rc<Self::Link>) {
+    pub(crate) fn add_link(&self, dest: ObjectId, link: Rc<Link<Message, Data>>) {
         let mut network_links = self.network_links.borrow_mut();
         let prev = network_links.insert(dest, link);
 
@@ -271,7 +272,7 @@ impl<Message: NetworkMessage, Data: NodeData> Node<Message, Data> {
     /// Returns which nodes this node is connected to
     pub fn get_peers(&self) -> Vec<ObjectId> {
         let links = self.network_links.borrow();
-        links.iter().map(|(idx, _)| *idx).collect()
+        links.keys().copied().collect()
     }
 
     /// How many other nodes is this node connected to?
@@ -290,7 +291,7 @@ impl<Message: NetworkMessage, Data: NodeData> Object for Node<Message, Data> {
 impl<Message: NetworkMessage, Data: NodeData> std::ops::Deref for Node<Message, Data> {
     type Target = Data;
 
-    fn deref(&self) -> &Self::Target {
+    fn deref(&self) -> &Data {
         self.get_data()
     }
 }

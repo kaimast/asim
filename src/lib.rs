@@ -1,6 +1,4 @@
 #![allow(incomplete_features)]
-#![feature(trait_upcasting)]
-#![feature(inherent_associated_types)]
 
 /// asim is a discrete event simulator for Rust
 ///

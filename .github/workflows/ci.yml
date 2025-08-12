@@ -17,7 +17,7 @@ jobs:
     - name: "Install rustc and clippy nightly"
       uses: dtolnay/rust-toolchain@stable
       with:
-         toolchain: nightly-2024-07-03 # this has to match rust-toolchain.toml
+         toolchain: nightly-2025-08-10 # this has to match rust-toolchain.toml
          components: cargo, rustc, clippy, rustfmt
     - name: "Setup just"
       run: cargo install just

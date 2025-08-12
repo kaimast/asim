@@ -1,3 +1,7 @@
+0.3:
+    - Upgrade to rand 0.9
+    - Switch to stable toolchain (1.89)
+
 0.2:
     - Add asim::spawn() function similar to tokio::spawn()
     - Add asim::time::sleep() function similar to tokio::time::sleep()
