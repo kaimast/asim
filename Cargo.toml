@@ -27,6 +27,7 @@ required-features = ["network"]
 
 [dev-dependencies]
 env_logger = "0.11"
+rust-hooks = { version="0.12", package="rusty-hooks-integration" }
 
 [features]
 default = ["network", "serde"]
