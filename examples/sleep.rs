@@ -1,7 +1,7 @@
 use asim::{time, Runtime};
 
 fn main() {
-    env_logger::init().unwrap();
+    env_logger::init();
 
     let rt = Runtime::new();
 

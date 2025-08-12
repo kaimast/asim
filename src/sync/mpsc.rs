@@ -46,7 +46,7 @@ pub struct GetFut<T> {
 impl<T> Future for GetFut<T> {
     type Output = Vec<T>;
 
-    fn poll(self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<Vec<T>> {
         let mut lock = self.inner.lock();
 
         if lock.messages.is_empty() {

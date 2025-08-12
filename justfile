@@ -1,8 +1,7 @@
 CLIPPY_FLAGS := "-- --deny \"warnings\""
 
 lint:
-    cargo clippy {{CLIPPY_FLAGS}}
-    cargo clippy --tests {{CLIPPY_FLAGS}}
+    cargo clippy --all-targets {{CLIPPY_FLAGS}}
 
 check:
     cargo check

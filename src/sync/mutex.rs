@@ -74,7 +74,7 @@ impl<T> Mutex<T> {
         }
     }
 
-    pub fn lock(&self) -> LockFuture<T> {
+    pub fn lock(&self) -> LockFuture<'_, T> {
         let mut inner = self.inner.borrow_mut();
         let identifier = inner.next_waiter_id;
         inner.next_waiter_id += 1;
@@ -95,13 +95,13 @@ impl<T: Default> Default for Mutex<T> {
 impl<T> Deref for LockGuard<'_, T> {
     type Target = T;
 
-    fn deref(&self) -> &Self::Target {
+    fn deref(&self) -> &T {
         &self.data
     }
 }
 
 impl<T> DerefMut for LockGuard<'_, T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
+    fn deref_mut(&mut self) -> &mut T {
         &mut self.data
     }
 }
@@ -109,7 +109,7 @@ impl<T> DerefMut for LockGuard<'_, T> {
 impl<'a, T> Future for LockFuture<'a, T> {
     type Output = LockGuard<'a, T>;
 
-    fn poll(self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<LockGuard<'a, T>> {
         let mut inner = self.mutex.inner.borrow_mut();
 
         if !inner.is_locked {
@@ -151,7 +151,7 @@ impl<'a, T> Future for LockFuture<'a, T> {
 impl<'a, T> Future for CondWait<'a, T> {
     type Output = LockGuard<'a, T>;
 
-    fn poll(self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<LockGuard<'a, T>> {
         let mut lock_future = self.lock_future.borrow_mut();
 
         if let Some(fut) = &mut *lock_future {
