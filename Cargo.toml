@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT"
 description = "Discrete Event Simluation for Async Rust"
 repository = "https://github.com/kaimast/asim"
-rust-version = "1.89"
+rust-version = "1.90"
 
 [workspace]
 members = ["macros"]
