@@ -1,3 +1,6 @@
+UNRELEASED:
+    - Rename `Time` to `Instant`
+
 0.3:
     - Upgrade to rand 0.9
     - Switch to stable toolchain (1.89)

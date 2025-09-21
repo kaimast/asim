@@ -7,10 +7,10 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::task::{Context, Poll, Waker};
 
-use crate::time::{Duration, Time};
+use crate::time::{Duration, Instant};
 
 struct TimeEvent {
-    wake_time: Time,
+    wake_time: Instant,
     waker: Waker,
 }
 
@@ -48,9 +48,9 @@ impl Timer {
     }
 
     /// Current simulation time (in milliseconds)
-    pub fn now(&self) -> Time {
+    pub fn now(&self) -> Instant {
         let micros = self.current_time.load(Ordering::SeqCst);
-        Time::from_micros(micros)
+        Instant::from_micros(micros)
     }
 
     /// Advance time to the next event and schedule it to be run
@@ -91,7 +91,7 @@ impl Timer {
 pub struct SleepFut {
     current_time: Rc<AtomicU64>,
     time_events: Rc<RefCell<BinaryHeap<Reverse<TimeEvent>>>>,
-    wake_time: Time,
+    wake_time: Instant,
 }
 
 impl Future for SleepFut {
@@ -100,7 +100,7 @@ impl Future for SleepFut {
     fn poll(self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<()> {
         let now = {
             let micros = self.current_time.load(Ordering::SeqCst);
-            Time::from_micros(micros)
+            Instant::from_micros(micros)
         };
 
         if now >= self.wake_time {

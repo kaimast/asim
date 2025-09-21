@@ -1,16 +1,16 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-/// Elapsed simulated time in nanoseconds
+/// A point in simulation time.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq)]
-pub struct Time(u64);
+pub struct Instant(u64);
 
-/// A period of simulated time
+/// A period of simulated time.
 #[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd, Ord, Eq)]
 pub struct Duration(u64);
 
-impl Time {
+impl Instant {
     pub const fn from_micros(micros: u64) -> Self {
         Self(micros)
     }
@@ -29,6 +29,11 @@ impl Time {
 
     pub const fn from_hours(hours: u64) -> Self {
         Self::from_minutes(60 * hours)
+    }
+
+    /// Get the time between the start of the simulation and this Instant.
+    pub const fn absolute(self) -> Duration {
+        Duration(self.0)
     }
 
     /// Get elapsed hours (rounded down)
@@ -126,7 +131,7 @@ impl Duration {
     }
 }
 
-impl std::ops::Add<Duration> for Time {
+impl std::ops::Add<Duration> for Instant {
     type Output = Self;
 
     fn add(self, other: Duration) -> Self {
@@ -156,7 +161,7 @@ impl std::ops::Sub for Duration {
     }
 }
 
-impl std::ops::Sub<Self> for Time {
+impl std::ops::Sub<Self> for Instant {
     type Output = Duration;
 
     fn sub(self, other: Self) -> Duration {
@@ -164,7 +169,7 @@ impl std::ops::Sub<Self> for Time {
     }
 }
 
-impl std::ops::Sub<Duration> for Time {
+impl std::ops::Sub<Duration> for Instant {
     type Output = Self;
 
     fn sub(self, other: Duration) -> Self {
@@ -178,7 +183,7 @@ impl std::fmt::Display for Duration {
     }
 }
 
-impl std::fmt::Display for Time {
+impl std::fmt::Display for Instant {
     fn fmt(&self, w: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         let hrs = self.to_hours();
         let minutes = self.to_minutes() - hrs * 60;
@@ -196,12 +201,9 @@ impl std::fmt::Display for Time {
     }
 }
 
-/// The time at which the simulation started
-pub const START_TIME: Time = Time(0);
-
 #[cfg(test)]
 mod tests {
-    use super::{Duration, Time};
+    use super::{Duration, Instant};
 
     #[test]
     fn duration_from_seconds() {
@@ -213,8 +215,8 @@ mod tests {
     }
 
     #[test]
-    fn time_from_seconds() {
-        let time = Time::from_seconds(2);
+    fn instant_from_seconds() {
+        let time = Instant::from_seconds(2);
 
         assert_eq!(2, time.to_seconds());
         assert_eq!(2_000, time.to_millis());

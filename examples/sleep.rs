@@ -12,6 +12,6 @@ fn main() {
         println!("The simulated time is now {:?}", time::now());
 
         // Ensure as time elapsed
-        assert!((time::now() - time::START_TIME) >= duration);
+        assert!(time::now().absolute() >= duration);
     });
 }

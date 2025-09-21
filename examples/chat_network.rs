@@ -17,8 +17,8 @@
 //! - Shows how network delays affect message delivery timing
 //! - Demonstrates both direct messages and broadcast messages
 
-use asim::network::{NetworkMessage, Object};
-use asim::{network, sync, time, Runtime};
+use asim::{Runtime, time::{self, Instant}, sync, network::{self, NetworkMessage, Object}};
+
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -26,7 +26,7 @@ use std::rc::Rc;
 struct ChatMessage {
     sender_name: String,
     content: String,
-    timestamp: time::Time,
+    timestamp: Instant,
 }
 
 impl network::NetworkMessage for ChatMessage {

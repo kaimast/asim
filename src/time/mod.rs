@@ -3,7 +3,7 @@ pub mod timer;
 pub use timer::{SleepFut, Timer};
 
 mod primitives;
-pub use primitives::{Duration, Time, START_TIME};
+pub use primitives::{Duration, Instant};
 
 /// Make this task wait for the specified duration
 pub fn sleep(duration: Duration) -> SleepFut {
@@ -17,7 +17,7 @@ pub fn sleep(duration: Duration) -> SleepFut {
 }
 
 /// Get the current simulated time
-pub fn now() -> Time {
+pub fn now() -> Instant {
     crate::CONTEXT.with(|hdl| {
         hdl.borrow()
             .as_ref()

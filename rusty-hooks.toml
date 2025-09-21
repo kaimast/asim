@@ -1,5 +1,5 @@
 [hooks]
-pre-commit = "just lint"
+pre-commit = "cargo clippy --workspace --all-targets --all-features -- -D warnings"
 
 [logging]
 verbose = true
