@@ -122,7 +122,7 @@ impl Runtime {
 
         while !*done.borrow() {
             self.execute_tasks();
-            self.timer.advance();
+            self.timer.advance(None);
         }
     }
 

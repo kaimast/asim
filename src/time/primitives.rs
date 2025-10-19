@@ -11,6 +11,13 @@ pub struct Instant(u64);
 pub struct Duration(u64);
 
 impl Instant {
+    /// Return the current simluation time.
+    ///
+    /// This panics when called outside of an asim context.
+    pub fn now() -> Self {
+        crate::time::now()
+    }
+
     pub const fn from_micros(micros: u64) -> Self {
         Self(micros)
     }

@@ -1,4 +1,5 @@
 UNRELEASED:
+    - Add maximum argument to `Timer::advance` to support fixed simulation speed
     - Rename `Time` to `Instant`
 
 0.3:

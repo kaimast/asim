@@ -229,11 +229,10 @@ impl<Message: NetworkMessage, Data: NodeData> Node<Message, Data> {
         );
 
         for (id, link) in links.iter() {
-            if let Some(ignore) = ignore {
-                if *id == ignore {
+            if let Some(ignore) = ignore
+                && *id == ignore {
                     continue;
                 }
-            }
 
             Link::send(link, self.get_identifier(), message.clone());
         }

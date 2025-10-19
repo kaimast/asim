@@ -259,7 +259,7 @@ mod tests {
 
         assert!(link.is_active());
 
-        asim.get_timer().advance();
+        asim.get_timer().advance(None);
         asim.execute_tasks();
         asim.execute_tasks();
 

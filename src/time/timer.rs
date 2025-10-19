@@ -53,20 +53,32 @@ impl Timer {
         Instant::from_micros(micros)
     }
 
-    /// Advance time to the next event and schedule it to be run
+    /// Advance time to the next event and schedule it to be run.
+    /// If no scheduled event exists, the 
+    /// If a maximum is set and an event exists, the time will be at most advanced by the given maximum.
     ///
-    /// Return true if any time event existed
-    pub fn advance(&self) -> bool {
+    /// Returns true if any time event existed.
+    pub fn advance(&self, max: Option<Duration>) -> bool {
         let mut time_events = self.time_events.borrow_mut();
-        if let Some(Reverse(time_event)) = time_events.pop() {
-            // Move to the time of the next event
+
+        let Some(Reverse(time_event)) = time_events.peek() else {
+            return false;
+        };
+
+        assert!(time_event.wake_time > self.now());
+
+        if let Some(max) = max && (time_event.wake_time - self.now()) > max {
+            self.current_time.fetch_add(max.as_micros(), Ordering::SeqCst);
+        } else { 
+            // Move to the time of the next event.
             self.current_time
                 .store(time_event.wake_time.as_micros(), Ordering::SeqCst);
+            // Remove the event from the heap and wake it up.
+            let Reverse(time_event) = time_events.pop().unwrap();
             time_event.waker.wake();
-            true
-        } else {
-            false
         }
+
+        true
     }
 
     /// Make this task wait for the specified duration
